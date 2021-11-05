@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Reference Design Tracking Application Service
+Globals:
+  Function:
+    Runtime: python3.8
+    MemorySize: 128
+    Timeout: 900
+    Tracing: Active
+    environment:
+      DAS_KEY: ${env:DAS_KEY}
+
+Parameters:
+  CognitoUserPoolId:
+    Type: String
+    Description: Enter cognito user pool id.
+
+Resources:
+  ATKCommonLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: IoTDescribeRole
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - iot:DescribeThing
+            Resource: '*'
+      - PolicyName: InvokeOtherLambdaFunctions
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - lambda:InvokeFunction
+            Resource: "*"
+      ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+          - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+          - arn:aws:iam::aws:policy/AWSIoTFullAccess
+          - arn:aws:iam::aws:policy/AWSIoTWirelessFullAccess
+  DeviceDataRuleLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      SourceArn:
+        'Fn::Join':
+          - ''
+          - - 'arn:aws:iot:'
+            - Ref: 'AWS::Region'
+            - ':'
+            - Ref: 'AWS::AccountId'
+            - ':rule/'
+            - Ref: DeviceDataRule
+      Action: 'lambda:InvokeFunction'
+      Principal: iot.amazonaws.com
+      FunctionName:
+        'Fn::GetAtt':
+          - ATKInsertDataIntoDB
+          - Arn
+      SourceAccount:
+        Ref: 'AWS::AccountId'
+  LoRaEdgeProcessRuleLambdaPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      SourceArn:
+        'Fn::Join':
+          - ''
+          - - 'arn:aws:iot:'
+            - Ref: 'AWS::Region'
+            - ':'
+            - Ref: 'AWS::AccountId'
+            - ':rule/'
+            - Ref: LoRaEdgeProcessRule
+      Action: 'lambda:InvokeFunction'
+      Principal: iot.amazonaws.com
+      FunctionName:
+        'Fn::GetAtt':
+          - ATKLoraEdgeReferenceTracker
+          - Arn
+      SourceAccount:
+        Ref: 'AWS::AccountId'
+  ReferenceTrackerServiceProfile:
+    Type: 'AWS::IoTWireless::ServiceProfile'
+    Properties:
+      Name: !Sub "${AWS::StackName}-ReferenceTracker"
+      LoRaWAN:
+        AddGwMetadata: true
+  EU868DeviceProfile:
+    Type: 'AWS::IoTWireless::DeviceProfile'
+    Properties:
+      Name: !Sub "${AWS::StackName}-EU868-A-OTAA"
+      LoRaWAN:
+        MacVersion: '1.0.3'
+        RfRegion: 'EU868'
+        RegParamsRevision: 'RP002-1.0.1'
+        MaxEirp: 5
+        SupportsClassB: false
+        SupportsClassC: false
+        SupportsJoin: true
+        Supports32BitFCnt: true
+  US915DeviceProfile:
+    Type: 'AWS::IoTWireless::DeviceProfile'
+    Properties:
+      Name: !Sub "${AWS::StackName}-US915-A-OTAA"
+      LoRaWAN:
+        MacVersion: '1.0.3'
+        RfRegion: 'US915'
+        RegParamsRevision: 'RP002-1.0.1'
+        MaxEirp: 13
+        SupportsClassB: false
+        SupportsClassC: false
+        SupportsJoin: true
+        Supports32BitFCnt: true
+  ReferenceTrackerProcessDestination:
+    Type: 'AWS::IoTWireless::Destination'
+    Properties:
+      Name: !Sub "${AWS::StackName}-ReferenceTrackerProcess"
+      Expression:
+        Ref: LoRaEdgeProcessRule
+      ExpressionType: 'RuleName'
+      RoleArn:
+        'Fn::GetAtt':
+          - IotWirelessDestinationRole
+          - Arn
+  LoRaEdgeProcessRule:
+    Type: 'AWS::IoT::TopicRule'
+    Properties:
+      TopicRulePayload:
+        RuleDisabled: false
+        Sql: SELECT * FROM 'iot/topic'
+        Actions:
+          - Lambda:
+              FunctionArn:
+                'Fn::GetAtt':
+                  - ATKLoraEdgeReferenceTracker
+                  - Arn

@@ -1,0 +1,16 @@
+{
+  "name": "serverless-framework-with-js",
+  "version": "1.0.0",
+  "description": "Example project using the Serverless Framework, Python, AWS Lambda, and AWS IoT Core Wireless.",
+  "dependencies": {
+    "serverless": "^1.56.1",
+    "serverless-jest-plugin": "^0.2.1",
+    "serverless-offline": "^5.12.0",
+    "serverless-stack-output": "^0.2.3"
+  },
+  "devDependencies": {
+    "axios": "^0.19.0",
+    "http-server": "^0.11.1",
+    "wait-on": "^3.3.0"
+  }
+}
