@@ -38,8 +38,7 @@ variables to be deployed with your function.
 
 ## Solver Options
 
-The cloud solver has been licensed to premier cloud partners including the [AWS Iot Core Device Location, AICDL](https://docs.aws.amazon.com/iot/latest/developerguide/device-location.html) service and [Traxmate Cloud for LoRaWAN](https://traxmate.io/solutions/tracking-integrations/traxmate-cloud-for-lorawan/).  
-    .
+The cloud solver has been licensed to premier cloud partners including the [AWS Iot Core Device Location, AICDL](https://docs.aws.amazon.com/iot/latest/developerguide/device-location.html) service and [Traxmate Cloud for LoRaWAN](https://traxmate.io/solutions/tracking-integrations/traxmate-cloud-for-lorawan/).
 
 
 
