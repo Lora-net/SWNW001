@@ -3,15 +3,15 @@
 This function is designed to take the Modem-E inside the device
 and use the LoRa Cloud(TM) API to do the following:
 
-# Forward Port 199 data to LoRa Cloud
-# Process returns from LoRa Cloud
-# If LoRa Cloud requires a downlink, send provided downlink
-# If LoRa Cloud returns a scan, send returned scan to LoRa Cloud (gnss/wifi) 
+# Forward Port 199 data to cloud solver
+# Process returns from cloud solver
+# If cloud solver requires a downlink, send provided downlink
+# If cloud solver returns a scan, send returned scan to cloud solver (gnss/wifi) 
 
 .. note:: This lambda requires permissions for: 
     logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, and 
     iotwireless:SendDataToWirelessDevice
-    Also, remember to add DAS_KEY from Lambda environment
+    Also, remember to add CS_KEY from Lambda environment
 
 :param event: The data from a LoRaWAN device
 :type event: JSON
@@ -64,8 +64,8 @@ API_URI=os.environ['ApiUrl']
 DEV_API='/api/v1/uplink/send'
 ADD_DEV_URI=API_URI+DEV_API
 # Secrets pulled from environment variable
-DAS_KEY=os.environ['DAS_KEY']
-myHeaders= {'Authorization': DAS_KEY, 'Content-Type': 'application/json'}
+CS_KEY=os.environ['CS_KEY']
+myHeaders= {'Authorization': CS_KEY, 'Content-Type': 'application/json'}
 # Timestamp converter
 iso2ts   = lambda iso: datetime.strptime(iso, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=timezone.utc).timestamp()
 
@@ -160,10 +160,10 @@ def lambda_handler(event, context):
         retVal['timestamp']     = data['timestamp']            
         return retVal
     else:
-        # Received port 199, forward the payload to DAS/LoRa Cloud
+        # Received port 199, forward the payload to CS/cloud solver
 
         # First check if the FCNT is less than 2
-        # If yes, tell the DAS the device has re-joined
+        # If yes, tell the CS the device has re-joined
         # Note the selection of "<2" to ensure we get a couple of opportunities 
         # on restart (the first couple of messages aren't from a stream)
         if (data['fcnt']<2):
@@ -174,7 +174,7 @@ def lambda_handler(event, context):
                             myHeaders)
             print('joinResponse: {}'.format(joinResponse))
             
-        # Sending message to DAS    
+        # Sending message to CS    
         dmsmsg = json.dumps({
         deveui: {
             "fcnt":       data['fcnt'],
@@ -189,7 +189,7 @@ def lambda_handler(event, context):
         outerResponse = send_https(API_URI, 'POST', DEV_API, dmsmsg, myHeaders)
         print('type:{}, outerResponse:{}'.format(type(outerResponse),outerResponse))
         td = json.loads(outerResponse)
-        print('DAS resp:{}'.format(td))
+        print('CS resp:{}'.format(td))
         if ('result' in td):
             # Deliver downlink to end device (if present)
             if ('dnlink' in td['result'][deveui]['result'].keys()):
@@ -232,7 +232,7 @@ def lambda_handler(event, context):
                                     MSG_SEND = {}
                                     MSG_SEND[deveui] = MSG_WIFI
                                     myData= json.dumps(MSG_SEND)
-                                    print('Sending a wifi message to DAS: {} (wifi msg len={})'.format(myData, length))
+                                    print('Sending a wifi message to CS: {} (wifi msg len={})'.format(myData, length))
                                     ir = send_https(API_URI, 'POST', DEV_API, myData, myHeaders)                                
                                     if ('result' in ir):
                                         print('wifi location result:{}'.format(ir))
@@ -273,7 +273,7 @@ def lambda_handler(event, context):
                                     MSG_SEND = {}
                                     MSG_SEND[deveui] = MSG_WIFI
                                     myData= json.dumps(MSG_SEND)
-                                    print('Sending a wifi message to DAS:{}'.format(myData))
+                                    print('Sending a wifi message to CS:{}'.format(myData))
                                     ir = send_https(API_URI, 'POST', DEV_API, myData, myHeaders)     
                                     if ('result' in ir):
                                         print('wifi location result:{}'.format(ir))
@@ -354,7 +354,7 @@ def lambda_handler(event, context):
                                     MSG_SEND = {}
                                     MSG_SEND[deveui] = MSG_GNSS
                                     myData= json.dumps(MSG_SEND)
-                                    print('Sending a gnss message to DAS:{}'.format(myData))
+                                    print('Sending a gnss message to CS:{}'.format(myData))
                                     ir = send_https(API_URI, 'POST', DEV_API, myData, myHeaders)                                  
                                     if ('result' in ir):
                                         print('gnss location result:{}'.format(ir))
@@ -402,7 +402,7 @@ def lambda_handler(event, context):
             return retVal
             
         # This is the return in case the     
-        retVal['error']         = 'Error, Bad DAS response: {}'.format(td)
+        retVal['error']         = 'Error, Bad CS response: {}'.format(td)
         retVal['statusCode']    = 404
         retVal['msgtype']       = 'Error'
         retVal['DevEUI']        = DEVEUI
